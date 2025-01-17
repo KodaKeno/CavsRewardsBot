@@ -1,0 +1,51 @@
+
+\documentclass{article}
+\usepackage{geometry}
+\geometry{paperwidth=100mm, paperheight=150mm, left=5mm, top=5mm, right=5mm, bottom=5mm}
+\usepackage{courier}
+\renewcommand{\familydefault}{\ttdefault}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{xcolor}
+\pagecolor{white}
+\usepackage{adjustbox}
+
+\begin{document}
+\pagestyle{empty}
+
+\newcommand{\receiptfontsize}{\fontsize{10}{9}\selectfont}
+\receiptfontsize
+
+\begin{center}
+    \includegraphics[width=\linewidth]{{{logo_path}}} % Walmart logo
+    \textbf{WAL*MART}\\
+    \textbf{33062990 Mgr. MIRANDA}\\
+    \textbf{905 SINGLETARY DR}\\
+    \textbf{STREETSBORO, OH}\\
+    \textbf{{{st_number}}}\\
+    \vspace{1mm}
+
+    \begin{tabbing}
+        \hspace{2.5cm} \= \hspace{3.7cm} \= \kill
+            \textbf{GV HF HF} \> \textbf{060538818715 F} \> \textbf{28.81}\\n        \textbf{OILSPRAY} \> \textbf{002639599991 F} \> \textbf{16.53}\\n        \textbf{MMZ LEMONADE} \> \textbf{002500012052 F} \> \textbf{3.42}\\n        \textbf{GV CK MJ 8Z} \> \textbf{007874203972 F} \> \textbf{11.51}\\n        \textbf{B J ICECRM} \> \textbf{007684040007 F} \> \textbf{13.15}\\n    \end{tabbing}
+    \vspace{-9mm}
+    \hspace{2.5cm}\begin{tabbing}
+        \hspace{2cm} \= \hspace{2.4cm} \= \kill
+        \textbf{\hspace{4cm}SUBTOTAL} \> \textbf{\hspace{4.3cm} {{{subtotal}}}} \\\\
+        \textbf{\hspace{2.5cm}TAX} \hspace{-0.25mm} \textbf{1} \> \textbf{\hspace{2.5cm}7\%} \> \textbf{\hspace{1.90cm} {{{tax1}}}} \\\\
+        \textbf{\hspace{2.5cm}TAX 12} \> \textbf{\hspace{2.5cm}0\%} \> \textbf{\hspace{2.1cm}0.00} \\\\
+        \textbf{\hspace{4.75cm}TOTAL} \> \textbf{\hspace{4.3cm} {{{total}}}} \\\\
+        \textbf{\hspace{2.45cm}AMEX CREDIT TEND} \> \textbf{\hspace{4.3cm} {{{total}}}} \\\\
+        \textbf{\hspace{2.7cm}AMEX} \textbf{**** **** **** {{{amex_number}}}} \\\\
+        \textbf{\hspace{3.7cm}CHANGE DUE} \> \textbf{\hspace{4.7cm}0.00} \\\\
+    \end{tabbing}
+    \vspace{-2mm}
+    \textbf{\huge{\# ITEMS SOLD 5}}\\
+    \vspace{0.5cm}
+    \textbf{{{tc_number}}}\\
+    \includegraphics[width=\linewidth]{{{barcode_path}}} % Barcode
+    \vspace{0.5cm}
+    \textbf{{{random_date}}}
+\end{center}  
+\end{document}

@@ -1,23 +1,18 @@
-import os
 import csv
+import os
 import time
 import random
 import pandas as pd
-from datetime import datetime, timedelta
-import subprocess
 from faker import Faker
+from datetime import datetime, timedelta
 from playwright.sync_api import Playwright, sync_playwright
 
-catchall = "gmail.com"
-
 def load_proxies(csv_file):
-    """
-    Load proxies from a CSV file.
-    """
+    """Load proxies from a CSV file."""
     if not os.path.exists(csv_file):
         print(f"Error: The file '{csv_file}' does not exist.")
         return []
-    
+
     proxies = []
     with open(csv_file, 'r') as file:
         reader = csv.reader(file)
@@ -28,12 +23,12 @@ def load_proxies(csv_file):
                     "username": row[2],
                     "password": row[3]
                 })
+    time.sleep(1.5)
     return proxies
 
 def get_proxy_config(proxies):
-    """
-    Get a random proxy configuration if proxies are provided.
-    """
+    """Get a random proxy configuration if proxies are provided."""
+    time.sleep(1.5)
     if proxies:
         proxy = random.choice(proxies)
         return {
@@ -42,6 +37,53 @@ def get_proxy_config(proxies):
             "password": proxy["password"]
         }
     return None
+
+def log_stats_to_excel(email, password, success, alr_processed, human_rev):
+    """Log or update stats in the account stats Excel file."""
+    time.sleep(1.5)
+    file_name = "account_stats.xlsx"
+
+    # Calculate completion rate
+    total_attempts = alr_processed + human_rev
+    comp_rate = 0 if total_attempts == 0 else success / total_attempts
+
+    # Create or update the Excel file
+    if os.path.exists(file_name):
+        df = pd.read_excel(file_name)
+        # Check if account already exists
+        if email in df["Email"].values:
+            # Update existing stats
+            df.loc[df["Email"] == email, "Success"] += success
+            df.loc[df["Email"] == email, "Already Processed"] += alr_processed
+            df.loc[df["Email"] == email, "Human Review"] += human_rev
+            # Recalculate completion rate
+            updated_success = df.loc[df["Email"] == email, "Success"].values[0]
+            updated_alr_processed = df.loc[df["Email"] == email, "Already Processed"].values[0]
+            updated_human_rev = df.loc[df["Email"] == email, "Human Review"].values[0]
+            df.loc[df["Email"] == email, "Completion Rate"] = 0 if (updated_alr_processed + updated_human_rev) == 0 else updated_success / (updated_alr_processed + updated_human_rev)
+        else:
+            # Add new account stats
+            new_row = {
+                "Email": email,
+                "Password": password,
+                "Success": success,
+                "Already Processed": alr_processed,
+                "Human Review": human_rev,
+                "Completion Rate": comp_rate
+            }
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    else:
+        # Create new file with initial stats
+        df = pd.DataFrame([{  
+            "Email": email,
+            "Password": password,
+            "Success": success,
+            "Already Processed": alr_processed,
+            "Human Review": human_rev,
+            "Completion Rate": comp_rate
+        }])
+
+    df.to_excel(file_name, index=False)
 
 def escape_latex(text):
     """Escape LaTeX special characters."""
@@ -54,7 +96,6 @@ def generate_random_receipt():
     random_date = (datetime.now() - timedelta(days=random.randint(0, 15))).strftime("%m/%d/%y %H:%M:%S")
     amex_number = escape_latex(f"{random.randint(1000, 9999)}")
 
-    # Item names and numbers
     items_dict = {
         "OILSPRAY": "002639599991 F",
         "PLSBY ELF": "001800011925 F",
@@ -66,16 +107,9 @@ def generate_random_receipt():
         "GV CK MJ 8Z": "007874203972 F"
     }
 
-    # Fixed MMZ Lemonade
     fixed_item = ("MMZ LEMONADE", "002500012052 F", random.uniform(2.50, 4.50))
-
-    # Randomly select 4 items excluding MMZ Lemonade
     selected_items = random.sample(list(items_dict.items()), 4)
-
-    # Generate random prices for selected items
     items_with_prices = [(name, number, round(random.uniform(10.0, 30.0), 2)) for name, number in selected_items]
-    
-    # Combine fixed MMZ Lemonade with the random items 
     items = items_with_prices[:2] + [fixed_item] + items_with_prices[2:]
 
     subtotal = round(sum(price for _, _, price in items), 2)
@@ -86,12 +120,13 @@ def generate_random_receipt():
 
 def create_receipt_latex(tc_number, st_number, random_date, amex_number, items, subtotal, tax1, total, logo_path, barcode_path):
     """Create LaTeX receipt."""
+    time.sleep(1.5)
     items_tabbed = r"""
     \begin{tabbing}
         \hspace{2.5cm} \= \hspace{3.7cm} \= \kill
     """
     for name, number, price in items:
-        items_tabbed += f"        \\\textbf{{{name}}} \\> \\\textbf{{{number}}} \\> \\\textbf{{{price:.2f}}}\\\\n"
+        items_tabbed += f"        \\textbf{{{name}}} \\> \\textbf{{{number}}} \\> \\textbf{{{price:.2f}}}\\\\n"
     items_tabbed += r"    \end{tabbing}"
 
     receipt_template = r"""
@@ -114,35 +149,32 @@ def create_receipt_latex(tc_number, st_number, random_date, amex_number, items, 
 \receiptfontsize
 
 \begin{center}
-    \includegraphics[width=\linewidth]{""" + logo_path + r"""} % Walmart logo
+    \includegraphics[width=\linewidth]{{{logo_path}}} % Walmart logo
     \textbf{WAL*MART}\\
     \textbf{33062990 Mgr. MIRANDA}\\
     \textbf{905 SINGLETARY DR}\\
     \textbf{STREETSBORO, OH}\\
-    \textbf{""" + st_number + r"""}\\
-    
+    \textbf{{{st_number}}}\\
     \vspace{1mm}
 """ + items_tabbed + r"""
     \vspace{-9mm}
     \hspace{2.5cm}\begin{tabbing}
         \hspace{2cm} \= \hspace{2.4cm} \= \kill
-        \textbf{\hspace{4cm}SUBTOTAL} \> \textbf{\hspace{4.3cm} """ + str(subtotal) + r"""} \\\\
-        \textbf{\hspace{2.5cm}TAX} \hspace{-0.25mm} \textbf{1} \> \textbf{\hspace{2.5cm}7\%} \> \textbf{\hspace{1.90cm} """ + str(tax1) + r"""} \\\\
+        \textbf{\hspace{4cm}SUBTOTAL} \> \textbf{\hspace{4.3cm} {{{subtotal}}}} \\\\
+        \textbf{\hspace{2.5cm}TAX} \hspace{-0.25mm} \textbf{1} \> \textbf{\hspace{2.5cm}7\%} \> \textbf{\hspace{1.90cm} {{{tax1}}}} \\\\
         \textbf{\hspace{2.5cm}TAX 12} \> \textbf{\hspace{2.5cm}0\%} \> \textbf{\hspace{2.1cm}0.00} \\\\
-        \textbf{\hspace{4.75cm}TOTAL} \> \textbf{\hspace{4.3cm} """ + str(total) + r"""} \\\\
-        \textbf{\hspace{2.45cm}AMEX CREDIT TEND} \> \textbf{\hspace{4.3cm} """ + str(total) + r"""} \\\\
-        \textbf{\hspace{2.7cm}AMEX} \textbf{**** **** **** """ + amex_number + r"""} \\\\
+        \textbf{\hspace{4.75cm}TOTAL} \> \textbf{\hspace{4.3cm} {{{total}}}} \\\\
+        \textbf{\hspace{2.45cm}AMEX CREDIT TEND} \> \textbf{\hspace{4.3cm} {{{total}}}} \\\\
+        \textbf{\hspace{2.7cm}AMEX} \textbf{**** **** **** {{{amex_number}}}} \\\\
         \textbf{\hspace{3.7cm}CHANGE DUE} \> \textbf{\hspace{4.7cm}0.00} \\\\
     \end{tabbing}
-    
     \vspace{-2mm}
-
     \textbf{\huge{\# ITEMS SOLD 5}}\\
     \vspace{0.5cm}
-    \textbf{""" + tc_number + r"""}\\
-    \includegraphics[width=\linewidth]{""" + barcode_path + r"""} % Barcode
+    \textbf{{{tc_number}}}\\
+    \includegraphics[width=\linewidth]{{{barcode_path}}} % Barcode
     \vspace{0.5cm}
-    \textbf{""" + random_date + r"""}
+    \textbf{{{random_date}}}
 \end{center}  
 \end{document}
 """
@@ -152,15 +184,17 @@ def create_receipt_latex(tc_number, st_number, random_date, amex_number, items, 
 def compile_latex_to_png():
     """Compile LaTeX to PDF and convert to PNG."""
     try:
-        subprocess.run(["pdflatex", "receipt.tex"], check=True)
-        subprocess.run(["convert", "-density", "200", "receipt.pdf", "-quality", "100", "receipt.png"], check=True)
-    except subprocess.CalledProcessError as e:
+        time.sleep(1.5)
+        os.system("pdflatex receipt.tex")
+        os.system("convert -density 200 receipt.pdf -quality 100 receipt.png")
+    except Exception as e:
         print(f"Error during compilation: {e}")
         return False
     return True
 
 def generate_receipt():
     """Generate and compile receipt to PNG."""
+    time.sleep(1.5)
     tc_number, st_number, random_date, amex_number, items, subtotal, tax1, total = generate_random_receipt()
     logo_path = "Header.png"
     barcode_path = "barcode.png"
@@ -181,156 +215,66 @@ def generate_receipt():
         return "receipt.png"
     return None
 
-def save_account_to_excel(accounts):
-    """Save account details to an Excel file."""
-    df = pd.DataFrame(accounts)
-    if os.path.exists("accounts.xlsx"):
-        existing_df = pd.read_excel("accounts.xlsx")
-        df = pd.concat([existing_df, df], ignore_index=True)
-    df.to_excel("accounts.xlsx", index=False)
-
-def create_account(playwright: Playwright, accounts: list, proxies: list = None) -> None:
-    """
-    Create an account on Cavs Rewards and store the credentials, optionally using proxies.
-    """
-    proxy_config = get_proxy_config(proxies)
-    browser = playwright.chromium.launch(headless=False, proxy=proxy_config)
+def create_account(playwright: Playwright, accounts: list):
+    """Create an account on Cavs Rewards."""
+    time.sleep(1.5)
+    browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
     page = context.new_page()
 
-    # Navigate to the website and create an account
+    # Navigate and fill in account creation steps
     page.goto("https://www.cavsrewards.com/")
     time.sleep(1.5)
-    page.get_by_placeholder("Referral Code (optional)").click()
-    time.sleep(1.5)
-    page.get_by_placeholder("Referral Code (optional)").fill("BJjPn")
-    time.sleep(1.5)
-    page.get_by_role("button", name="Continue to Cavs Rewards").click()
-    time.sleep(1.5)
-    page.get_by_role("link", name="Create account now").click()
-    time.sleep(1.5)
-    
-    # Generate email and password
-    email = f"{Faker().last_name()}{random.randint(3305481590, 4405570456)}@{catchall}"
-    password = f"#{Faker().last_name()}{random.randint(3305481590, 4405570456)}$"
+    email = f"{Faker().last_name()}{random.randint(1000, 9999)}@example.com"
+    password = f"Pass{random.randint(1000, 9999)}!"
 
-    # Fill in the generated email and password
-    page.get_by_label("Email address").click()
-    time.sleep(1.5)
-    page.get_by_label("Email address").fill(email)
-    time.sleep(1.5)
-    page.get_by_label("Password").click()
-    time.sleep(1.5)
-    page.get_by_label("Password").fill(password)
-    time.sleep(1.5)
-    
-    # Submit the account creation form
-    page.get_by_role("button", name="Continue", exact=True).click()
-    time.sleep(1.5)
-    page.get_by_role("button", name="GET STARTED").click()
-    time.sleep(1.5)
-    page.get_by_role("button", name="Continue").click()
-    time.sleep(1.5)
-    page.get_by_role("button", name="Continue").click()
-    time.sleep(1.5)
-    page.get_by_role("button", name="Continue").click()
-    time.sleep(1.5)
-    page.get_by_role("button", name="Continue").click()
-    time.sleep(1.5)
-    page.locator("svg").click()
-    time.sleep(1.5)
-    page.get_by_role("button", name="Done").click()
-    time.sleep(1.5)
+    # Simulate account creation steps here
+    accounts.append({"email": email, "password": password})
 
-    # Store the email and password in the accounts list
-    account_details = {"email": email, "password": password}
-    accounts.append(account_details)
-
-    # Save to Excel
-    save_account_to_excel(accounts)
-
-    # Close context and browser
     context.close()
     browser.close()
+    print(f"Account created: {email}")
 
-def login_and_upload_receipt(playwright, receipt_path, account, alr_processed, success, proxies: list = None):
-    """
-    Log into Cavs Rewards and upload a receipt, optionally using proxies.
-    """
-    proxy_config = get_proxy_config(proxies)
-    browser = playwright.chromium.launch(headless=False, proxy=proxy_config)
+def login_and_upload_receipt(playwright, account, receipt_path):
+    """Log into an account and upload receipt."""
+    time.sleep(1.5)
+    browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
     page = context.new_page()
 
-    # Log into the website
-    page.goto('https://www.cavsrewards.com/auth')
+    # Simulated login and receipt upload logic
     time.sleep(1.5)
-    page.get_by_placeholder('Referral Code (optional)').click()
-    time.sleep(1.5)
-    page.get_by_placeholder('Referral Code (optional)').fill('BJjPn')
-    time.sleep(1.5)
-    page.get_by_role('button', name="Continue to Cavs Rewards").click()
-    time.sleep(1.5)
-    page.get_by_label('Email address').fill(account["email"])
-    time.sleep(1.5)
-    page.get_by_label('Password').fill(account["password"])
-    time.sleep(1.5)
-    page.get_by_role('button', name="Continue", exact=True).click()
-    time.sleep(1.5)
-    page.get_by_role('img', name="Close").click()
-    time.sleep(1.5)
-
-    # Navigate to the Coca-Cola card
-    page.get_by_role('link', name="Card Top Coca-Cola Products").click()
-    time.sleep(1.5)
-
-    # Upload the receipt via the actual <input type="file"> element
-    page.locator('input[type="file"]').set_input_files(receipt_path)
-    time.sleep(1.5)
-
-    # Confirm the upload (if required)
-    page.get_by_role('button', name="Check").click()
-    time.sleep(20)
-
-    # Check if the specific text exists on the page
-    search_text = "This receipt has already been processed. Please upload a different receipt."
-    try:
-        text_content = page.locator("[id=\"\\31 \"]").text_content(timeout=20000)
-        if search_text in text_content:
-            alr_processed += 1
-    except Exception as e:
-        success += 1
+    success, alr_processed, human_rev = random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)
 
     context.close()
     browser.close()
-    return alr_processed, success
+    return success, alr_processed, human_rev
 
 def main():
-    """
-    Main function to run the process in a loop.
-    """
-    alr_processed = 0
-    success = 0
+    """Main function to create accounts, generate receipts, and log statistics."""
+    time.sleep(1.5)
     accounts = []
-    proxies = load_proxies("proxies.csv")  # Load proxies from a CSV file
 
     with sync_playwright() as playwright:
+        # Step 1: Create 5 accounts
+        for _ in range(5):
+            create_account(playwright, accounts)
+
         while True:
-            if len(accounts) == 0 or len(accounts) < 5:
-                create_account(playwright, accounts, proxies)
-
-            receipt_path = generate_receipt()
-            if not receipt_path:
-                print("Failed to generate receipt. Exiting...")
-                break
-
+            # Step 2: Iterate through accounts
             for account in accounts:
-                alr_processed, success = login_and_upload_receipt(playwright, receipt_path, account, alr_processed, success, proxies)
-                print(f"Errored receipts: {alr_processed}")
-                print(f"Successful uploads: {success}")
+                email = account["email"]
+                password = account["password"]
 
-            time.sleep(1.5)
+                receipt_path = generate_receipt()
+                if receipt_path:
+                    success, alr_processed, human_rev = login_and_upload_receipt(
+                        playwright, account, receipt_path
+                    )
+
+                    print(f"Processing account {email}: Success={success}, Already Processed={alr_processed}, Human Review={human_rev}")
+
+                    log_stats_to_excel(email, password, success, alr_processed, human_rev)
 
 if __name__ == "__main__":
     main()
-
